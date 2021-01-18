@@ -3,6 +3,8 @@ package response
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/morelj/httptools/header"
 )
 
 type SerializerFunc func(v interface{}) ([]byte, error)
@@ -16,6 +18,7 @@ type Builder struct {
 
 func NewBuilder() *Builder {
 	return &Builder{
+		headers:    http.Header{},
 		statusCode: http.StatusOK,
 		serializer: DefaultSerializer,
 	}
@@ -39,7 +42,7 @@ func (b *Builder) WithBody(body interface{}) *Builder {
 func (b *Builder) WithJSONBody(body interface{}) *Builder {
 	b.body = body
 	b.serializer = json.Marshal
-	return b.WithHeader("content-type", "application/json")
+	return b.WithHeader(header.ContentType, "application/json")
 }
 
 func (b *Builder) Write(w http.ResponseWriter) error {
@@ -58,8 +61,7 @@ func (b *Builder) Write(w http.ResponseWriter) error {
 		return err
 	}
 
-	_, err := w.Write(nil)
-	return err
+	return nil
 }
 
 func (b *Builder) MustWrite(w http.ResponseWriter) {
