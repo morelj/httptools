@@ -6,6 +6,7 @@ import (
 	"github.com/morelj/httptools/response"
 )
 
+// StaticHandler is an implementation of http.Handler which always writes the same pre-defined response.
 type StaticHandler struct {
 	StatusCode int
 	Body       []byte

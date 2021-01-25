@@ -2,6 +2,7 @@ package response
 
 import "fmt"
 
+// DefaultSerializer serializes a []byte or a string to a []byte.
 func DefaultSerializer(v interface{}) ([]byte, error) {
 	switch v := v.(type) {
 	case []byte:

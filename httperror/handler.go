@@ -11,8 +11,14 @@ import (
 	"github.com/morelj/httptools/response"
 )
 
+// An ErrorResponseWriterFunc is a function which writes an Error into a ResponseWriter
 type ErrorResponseWriterFunc func(err Error, w http.ResponseWriter) error
 
+// NewMiddleware returns a middleware which will recover when subsequent handlers panics.
+// The panic value is used to produce an error response using the ErrorResponseWriterFunc and write it to the
+// ResponseWriter.
+// If the panic value is an Error, it is used as is. Otherwise, the error is wrapped into an Error with the error
+// code 500.
 func NewMiddleware(ew ErrorResponseWriterFunc) mux.MiddlewareFunc {
 	return mux.MiddlewareFunc(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +57,8 @@ func NewMiddleware(ew ErrorResponseWriterFunc) mux.MiddlewareFunc {
 	})
 }
 
+// WriteTextErrorResponse is an error response writer to be used with NewMiddleware.
+// It serializes the error message in plain text.
 func WriteTextErrorResponse(err Error, w http.ResponseWriter) error {
 	return response.NewBuilder().
 		WithStatus(err.StatusCode()).
@@ -59,6 +67,8 @@ func WriteTextErrorResponse(err Error, w http.ResponseWriter) error {
 		Write(w)
 }
 
+// NewJSONErrorResponseWriter returns an ErrorResponseWriterFunc which serializes errors into JSON.
+// The passed newValue function must returns a new value which will be used as the serialization target.
 func NewJSONErrorResponseWriter(newValue func(err Error) interface{}) ErrorResponseWriterFunc {
 	return ErrorResponseWriterFunc(func(err Error, w http.ResponseWriter) error {
 		return response.NewBuilder().
@@ -68,6 +78,14 @@ func NewJSONErrorResponseWriter(newValue func(err Error) interface{}) ErrorRespo
 	})
 }
 
+// WriteDefaultJSONErrorResponse is ErrorResponseWriterFunc which serializes errors into JSON using the default format.
+//
+// Results will look like:
+//
+//     {
+//         "message": "error message",
+//         "code": 404
+//     }
 var WriteDefaultJSONErrorResponse = NewJSONErrorResponseWriter(func(err Error) interface{} {
 	return err
 })
