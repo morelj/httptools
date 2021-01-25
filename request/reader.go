@@ -19,7 +19,7 @@ func (r Reader) Bytes() ([]byte, error) {
 	return ioutil.ReadAll(r.r.Body)
 }
 
-func (r Reader) MuseBytes() []byte {
+func (r Reader) MustBytes() []byte {
 	data, err := r.Bytes()
 	if err != nil {
 		panic(err)
@@ -33,7 +33,7 @@ func (r Reader) String() (string, error) {
 }
 
 func (r Reader) MustString() string {
-	return string(r.MuseBytes())
+	return string(r.MustBytes())
 }
 
 func (r Reader) UnmarshalJSON(v interface{}) error {

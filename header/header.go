@@ -60,6 +60,7 @@ const (
 	PublicKeyPins                 = "Public-Key-Pins"
 	Range                         = "Range"
 	Referer                       = "Referer"
+	Referrer                      = "Referer"
 	RetryAfter                    = "Retry-After"
 	Server                        = "Server"
 	SetCookie                     = "Set-Cookie"

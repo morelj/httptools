@@ -34,14 +34,29 @@ func (b *Builder) WithHeader(key, value string) *Builder {
 	return b
 }
 
+func (b *Builder) WithHeaders(h http.Header) *Builder {
+	for k, v := range h {
+		b.headers[k] = v
+	}
+	return b
+}
+
 func (b *Builder) WithBody(body interface{}) *Builder {
 	b.body = body
 	return b
 }
 
 func (b *Builder) WithJSONBody(body interface{}) *Builder {
+	return b.WithCustomJSONBody(body, false)
+}
+
+func (b *Builder) WithCustomJSONBody(body interface{}, indent bool) *Builder {
 	b.body = body
-	b.serializer = json.Marshal
+	if indent {
+		b.serializer = jsonMarshalIndent
+	} else {
+		b.serializer = json.Marshal
+	}
 	return b.WithHeader(header.ContentType, "application/json")
 }
 
@@ -68,4 +83,8 @@ func (b *Builder) MustWrite(w http.ResponseWriter) {
 	if err := b.Write(w); err != nil {
 		panic(err)
 	}
+}
+
+func jsonMarshalIndent(v interface{}) ([]byte, error) {
+	return json.MarshalIndent(v, "", "  ")
 }
