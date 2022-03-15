@@ -15,7 +15,7 @@ func MustWithStatus(err error, status int) {
 			panic(err)
 
 		default:
-			panic(New(status, err.Error()))
+			panic(NewWithError(err, status, err.Error()))
 		}
 	}
 }
