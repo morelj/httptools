@@ -2,52 +2,58 @@ package httperror
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"runtime/debug"
 
 	"github.com/gorilla/mux"
 	"github.com/morelj/httptools/header"
 	"github.com/morelj/httptools/response"
+	"github.com/morelj/httptools/stack"
+	"github.com/morelj/log"
 )
 
 // An ErrorResponseWriterFunc is a function which writes an Error into a ResponseWriter
 type ErrorResponseWriterFunc func(err Error, w http.ResponseWriter) error
+
+// A LoggerFunc purpose is to log a panic (r). The call stack of the current goroutine is also provided.
+type LoggerFunc func(r interface{}, stack stack.Stack)
+
+// A WrapperFunc must wrap a panic (r) into an Error.
+type WrapperFunc func(r interface{}, stack stack.Stack) Error
 
 // NewMiddleware returns a middleware which will recover when subsequent handlers panics.
 // The panic value is used to produce an error response using the ErrorResponseWriterFunc and write it to the
 // ResponseWriter.
 // If the panic value is an Error, it is used as is. Otherwise, the error is wrapped into an Error with the error
 // code 500.
+// Calling NewMiddleware(ew) is equivalent to calling NewCustomMiddleware(ew, Wrap, Log)
 func NewMiddleware(ew ErrorResponseWriterFunc) mux.MiddlewareFunc {
+	return NewCustomMiddleware(ew, Wrap, Log)
+}
+
+// NewCustomMiddleware returns a middleware which will recover when subsequent handlers panics.
+//
+// In case of panic:
+// - logger is called to log the error
+// - then wrap is called to obtain an Error from the value returned by recover
+// - finally the error is serialized using ew
+func NewCustomMiddleware(ew ErrorResponseWriterFunc, wrap WrapperFunc, logger LoggerFunc) mux.MiddlewareFunc {
 	return mux.MiddlewareFunc(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("Recovering from panic: %v\n", r)
-					debug.PrintStack()
-
-					var err error
-
-					switch r := r.(type) {
-					case Error:
-						err = ew(r, w)
-
-					case error:
-						err = ew(httpError{
-							Message: r.Error(),
-							Code:    http.StatusInternalServerError,
-						}, w)
-
-					default:
-						err = ew(httpError{
-							Message: fmt.Sprintf("Panic: %v", r),
-							Code:    http.StatusInternalServerError,
-						}, w)
+					stack, err := stack.Parse(debug.Stack())
+					if err != nil {
+						log.Errorf("Failed to parse stack: %v", err)
 					}
 
-					if err != nil {
-						log.Printf("Error writing error: %v\n", err)
+					// Log the error
+					logger(r, stack)
+
+					// Wrap the error
+					wrappedErr := wrap(r, stack)
+					if err := ew(wrappedErr, w); err != nil {
+						log.Errorf("Error writing error: %v\n", err)
 					}
 				}
 			}()
@@ -56,6 +62,40 @@ func NewMiddleware(ew ErrorResponseWriterFunc) mux.MiddlewareFunc {
 		})
 	})
 }
+
+// Wrap is the default WrapperFunc.
+// - If r is an Error, it is returned as is
+// - If it is any other error type, it is wrapped into an Error with a 500 status code
+// - If it is any other value, it returns a 500 Error with an error message
+func Wrap(r interface{}, stack stack.Stack) Error {
+	switch r := r.(type) {
+	case Error:
+		return r
+
+	case error:
+		return httpError{
+			Message: r.Error(),
+			Code:    http.StatusInternalServerError,
+		}
+
+	default:
+		return httpError{
+			Message: fmt.Sprintf("Panic: %v", r),
+			Code:    http.StatusInternalServerError,
+		}
+	}
+}
+
+// Log is the default LoggerFunc.
+// It logs the value of r and the raw stack.
+func Log(r interface{}, stack stack.Stack) {
+	log.Errorf("Recovering from panic: %v\n", r)
+	log.Errorf(string(stack.Raw))
+}
+
+// NoOpLog is a no-operation LoggerFunc.
+// It does nothing at all.
+func NoOpLog(r interface{}, stack stack.Stack) {}
 
 // WriteTextErrorResponse is an error response writer to be used with NewMiddleware.
 // It serializes the error message in plain text.
