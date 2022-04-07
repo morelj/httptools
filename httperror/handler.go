@@ -15,8 +15,9 @@ import (
 // An ErrorResponseWriterFunc is a function which writes an Error into a ResponseWriter
 type ErrorResponseWriterFunc func(err Error, w http.ResponseWriter) error
 
-// A LoggerFunc purpose is to log a panic (r). The call stack of the current goroutine is also provided.
-type LoggerFunc func(r interface{}, stack stack.Stack)
+// A LoggerFunc purpose is to log an error, after it has been wrapped.
+// The original HTTP request and the call stack of the current goroutine are also provided.
+type LoggerFunc func(r *http.Request, err Error, stack stack.Stack)
 
 // A WrapperFunc must wrap a panic (r) into an Error.
 type WrapperFunc func(r interface{}, stack stack.Stack) Error
@@ -41,17 +42,18 @@ func NewCustomMiddleware(ew ErrorResponseWriterFunc, wrap WrapperFunc, logger Lo
 	return mux.MiddlewareFunc(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
-				if r := recover(); r != nil {
+				if rec := recover(); rec != nil {
 					stack, err := stack.Parse(debug.Stack())
 					if err != nil {
 						log.Errorf("Failed to parse stack: %v", err)
 					}
 
-					// Log the error
-					logger(r, stack)
-
 					// Wrap the error
-					wrappedErr := wrap(r, stack)
+					wrappedErr := wrap(rec, stack)
+
+					// Log the error
+					logger(r, wrappedErr, stack)
+
 					if err := ew(wrappedErr, w); err != nil {
 						log.Errorf("Error writing error: %v\n", err)
 					}
@@ -88,14 +90,14 @@ func Wrap(r interface{}, stack stack.Stack) Error {
 
 // Log is the default LoggerFunc.
 // It logs the value of r and the raw stack.
-func Log(r interface{}, stack stack.Stack) {
-	log.Errorf("Recovering from panic: %v\n", r)
+func Log(r *http.Request, err Error, stack stack.Stack) {
+	log.Errorf("Error (%d): %s\n", err.StatusCode(), err.Error())
 	log.Errorf(string(stack.Raw))
 }
 
 // NoOpLog is a no-operation LoggerFunc.
 // It does nothing at all.
-func NoOpLog(r interface{}, stack stack.Stack) {}
+func NoOpLog(*http.Request, Error, stack.Stack) {}
 
 // WriteTextErrorResponse is an error response writer to be used with NewMiddleware.
 // It serializes the error message in plain text.
