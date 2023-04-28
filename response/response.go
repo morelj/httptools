@@ -1,21 +1,17 @@
 package response
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/morelj/httptools/body"
 	"github.com/morelj/httptools/header"
 )
-
-// A SerializerFunc serializes a body into bytes.
-type SerializerFunc func(v interface{}) ([]byte, error)
 
 // Builder provides an API to build an HTTP response before writing it to an http.Writer.
 type Builder struct {
 	headers    http.Header
 	statusCode int
-	body       interface{}
-	serializer SerializerFunc
+	body       body.Body
 }
 
 // NewBuilder returns a new, ready to use Builder.
@@ -24,7 +20,6 @@ func NewBuilder() *Builder {
 	return &Builder{
 		headers:    http.Header{},
 		statusCode: http.StatusOK,
-		serializer: DefaultSerializer,
 	}
 }
 
@@ -48,53 +43,49 @@ func (b *Builder) WithHeaders(h http.Header) *Builder {
 	return b
 }
 
-// WithBody sets the body of the response which must be either a []byte or a string.
-// The body will be serialized with the default serializer.
-func (b *Builder) WithBody(body interface{}) *Builder {
-	b.body = body
-	b.serializer = DefaultSerializer
+func (b *Builder) WithBody(bdy body.Body) *Builder {
+	b.body = bdy
 	return b
 }
 
-// WithCustomBody sets the body of the response along with a serializer.
-func (b *Builder) WithCustomBody(body interface{}, serializer SerializerFunc) *Builder {
-	b.body = body
-	b.serializer = serializer
+func (b *Builder) WithRawBody(data []byte) *Builder {
+	b.body = body.Raw(data)
 	return b
 }
 
 // WithJSONBody sets the body of the response with a JSON serializer.
-func (b *Builder) WithJSONBody(body interface{}) *Builder {
-	return b.WithCustomJSONBody(body, false)
+func (b *Builder) WithJSONBody(bdy any) *Builder {
+	return b.WithCustomJSONBody(bdy, false)
 }
 
 // WithCustomJSONBody sets the body of the response with a JSON serializer which can optionally be indented.
-func (b *Builder) WithCustomJSONBody(body interface{}, indent bool) *Builder {
-	b.body = body
+func (b *Builder) WithCustomJSONBody(bdy any, indent bool) *Builder {
 	if indent {
-		b.serializer = jsonMarshalIndent
+		b.body = body.JSONIndent(bdy, "", "  ")
 	} else {
-		b.serializer = json.Marshal
+		b.body = body.JSON(bdy)
 	}
-	return b.WithHeader(header.ContentType, "application/json")
+	return b
 }
 
 // Write writes the response to w.
 // If set, the body is serialized using the serializer.
 func (b *Builder) Write(w http.ResponseWriter) error {
 	h := w.Header()
+
+	if b.body != nil {
+		if contentType := b.body.ContentType(); contentType != "" {
+			h.Set(header.ContentType, contentType)
+		}
+	}
+
 	for k, v := range b.headers {
 		h[k] = v
 	}
 	w.WriteHeader(b.statusCode)
 
 	if b.body != nil {
-		body, err := b.serializer(b.body)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(body)
-		return err
+		return body.WriteBody(b.body, w)
 	}
 
 	return nil
@@ -105,8 +96,4 @@ func (b *Builder) MustWrite(w http.ResponseWriter) {
 	if err := b.Write(w); err != nil {
 		panic(err)
 	}
-}
-
-func jsonMarshalIndent(v interface{}) ([]byte, error) {
-	return json.MarshalIndent(v, "", "  ")
 }

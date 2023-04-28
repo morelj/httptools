@@ -5,12 +5,14 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/gorilla/mux"
+	"github.com/morelj/httptools/body"
 	"github.com/morelj/httptools/header"
 	"github.com/morelj/httptools/response"
 	"github.com/morelj/httptools/stack"
 	"github.com/morelj/log"
 )
+
+type Middleware func(http.Handler) http.Handler
 
 // An ErrorResponseWriterFunc is a function which writes an Error into a ResponseWriter
 type ErrorResponseWriterFunc func(err Error, w http.ResponseWriter) error
@@ -28,7 +30,7 @@ type WrapperFunc func(r interface{}, stack stack.Stack) Error
 // If the panic value is an Error, it is used as is. Otherwise, the error is wrapped into an Error with the error
 // code 500.
 // Calling NewMiddleware(ew) is equivalent to calling NewCustomMiddleware(ew, Wrap, Log)
-func NewMiddleware(ew ErrorResponseWriterFunc) mux.MiddlewareFunc {
+func NewMiddleware(ew ErrorResponseWriterFunc) Middleware {
 	return NewCustomMiddleware(ew, Wrap, Log)
 }
 
@@ -38,8 +40,8 @@ func NewMiddleware(ew ErrorResponseWriterFunc) mux.MiddlewareFunc {
 // - logger is called to log the error
 // - then wrap is called to obtain an Error from the value returned by recover
 // - finally the error is serialized using ew
-func NewCustomMiddleware(ew ErrorResponseWriterFunc, wrap WrapperFunc, logger LoggerFunc) mux.MiddlewareFunc {
-	return mux.MiddlewareFunc(func(next http.Handler) http.Handler {
+func NewCustomMiddleware(ew ErrorResponseWriterFunc, wrap WrapperFunc, logger LoggerFunc) Middleware {
+	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if rec := recover(); rec != nil {
@@ -62,7 +64,7 @@ func NewCustomMiddleware(ew ErrorResponseWriterFunc, wrap WrapperFunc, logger Lo
 
 			next.ServeHTTP(w, r)
 		})
-	})
+	}
 }
 
 // Wrap is the default WrapperFunc.
@@ -105,7 +107,7 @@ func WriteTextErrorResponse(err Error, w http.ResponseWriter) error {
 	return response.NewBuilder().
 		WithStatus(err.StatusCode()).
 		WithHeader(header.ContentType, "text/plain").
-		WithBody(err.Error()).
+		WithBody(body.Raw(err.Error())).
 		Write(w)
 }
 
@@ -124,10 +126,10 @@ func NewJSONErrorResponseWriter(newValue func(err Error) interface{}) ErrorRespo
 //
 // Results will look like:
 //
-//     {
-//         "message": "error message",
-//         "code": 404
-//     }
+//	{
+//	    "message": "error message",
+//	    "code": 404
+//	}
 var WriteDefaultJSONErrorResponse = NewJSONErrorResponseWriter(func(err Error) interface{} {
 	return err
 })
