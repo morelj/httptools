@@ -1,6 +1,7 @@
 package httperror
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"runtime/debug"
@@ -22,6 +23,10 @@ type LoggerFunc func(r *http.Request, err Error, stack stack.Stack)
 // A WrapperFunc must wrap a panic (r) into an Error.
 type WrapperFunc func(r interface{}, stack stack.Stack) Error
 
+// A WrapperContextFunc must wrap a panic (r) into an Error.
+// ctx is the original http.Request's context.
+type WrapperContextFunc func(ctx context.Context, r any, stack stack.Stack) Error
+
 // NewMiddleware returns a middleware which will recover when subsequent handlers panics.
 // The panic value is used to produce an error response using the ErrorResponseWriterFunc and write it to the
 // ResponseWriter.
@@ -38,7 +43,21 @@ func NewMiddleware(ew ErrorResponseWriterFunc) mux.MiddlewareFunc {
 // - logger is called to log the error
 // - then wrap is called to obtain an Error from the value returned by recover
 // - finally the error is serialized using ew
+//
+// This function is similar to NewCustomContextMiddleware but uses a WrapperFunc insteads of a WrapperContextFunc
 func NewCustomMiddleware(ew ErrorResponseWriterFunc, wrap WrapperFunc, logger LoggerFunc) mux.MiddlewareFunc {
+	return NewCustomContextMiddleware(ew, func(ctx context.Context, r any, stack stack.Stack) Error {
+		return wrap(r, stack)
+	}, logger)
+}
+
+// NewCustomContextMiddleware returns a middleware which will recover when subsequent handlers panics.
+//
+// In case of panic:
+// - logger is called to log the error
+// - then wrap is called to obtain an Error from the value returned by recover
+// - finally the error is serialized using ew
+func NewCustomContextMiddleware(ew ErrorResponseWriterFunc, wrap WrapperContextFunc, logger LoggerFunc) mux.MiddlewareFunc {
 	return mux.MiddlewareFunc(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -49,7 +68,7 @@ func NewCustomMiddleware(ew ErrorResponseWriterFunc, wrap WrapperFunc, logger Lo
 					}
 
 					// Wrap the error
-					wrappedErr := wrap(rec, stack)
+					wrappedErr := wrap(r.Context(), rec, stack)
 
 					// Log the error
 					logger(r, wrappedErr, stack)
@@ -124,10 +143,10 @@ func NewJSONErrorResponseWriter(newValue func(err Error) interface{}) ErrorRespo
 //
 // Results will look like:
 //
-//     {
-//         "message": "error message",
-//         "code": 404
-//     }
+//	{
+//	    "message": "error message",
+//	    "code": 404
+//	}
 var WriteDefaultJSONErrorResponse = NewJSONErrorResponseWriter(func(err Error) interface{} {
 	return err
 })
