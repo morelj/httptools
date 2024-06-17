@@ -84,11 +84,11 @@ func NewCustomContextMiddleware(ew ErrorResponseWriterFunc, wrap WrapperContextF
 	})
 }
 
-// Wrap is the default WrapperFunc.
+// WrapContext is the default WrapperContextFunc.
 // - If r is an Error, it is returned as is
 // - If it is any other error type, it is wrapped into an Error with a 500 status code
 // - If it is any other value, it returns a 500 Error with an error message
-func Wrap(r interface{}, stack stack.Stack) Error {
+func WrapContext(ctx context.Context, r any, stack stack.Stack) Error {
 	switch r := r.(type) {
 	case Error:
 		return r
@@ -105,6 +105,14 @@ func Wrap(r interface{}, stack stack.Stack) Error {
 			Code:    http.StatusInternalServerError,
 		}
 	}
+}
+
+// Wrap is the default WrapperFunc.
+// - If r is an Error, it is returned as is
+// - If it is any other error type, it is wrapped into an Error with a 500 status code
+// - If it is any other value, it returns a 500 Error with an error message
+func Wrap(r interface{}, stack stack.Stack) Error {
+	return WrapContext(context.Background(), r, stack)
 }
 
 // Log is the default LoggerFunc.
