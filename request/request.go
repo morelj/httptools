@@ -12,8 +12,8 @@ import (
 // The body may be nil. When non-nil, the body will also be able to define the Content-Type header.
 // Options are processed in order after the request is created. Using options it is possible to override all aspects
 // of the request.
-func NewWithContext(ctx context.Context, method, url string, b body.Body, options ...Option) (*http.Request, error) {
-	r, err := body.ProvideBody(b)
+func NewWithContext(ctx context.Context, method, url string, b any, options ...Option) (*http.Request, error) {
+	r, err := body.ReaderFor(b)
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func NewWithContext(ctx context.Context, method, url string, b body.Body, option
 		return nil, err
 	}
 
-	if b != nil {
+	if b, ok := b.(body.ContentTyper); ok {
 		if contentType := b.ContentType(); contentType != "" {
 			req.Header.Set(header.ContentType, contentType)
 		}
@@ -32,7 +32,7 @@ func NewWithContext(ctx context.Context, method, url string, b body.Body, option
 	return req, Apply(req, options...)
 }
 
-func New(method, url string, b body.Body, options ...Option) (*http.Request, error) {
+func New(method, url string, b any, options ...Option) (*http.Request, error) {
 	return NewWithContext(context.Background(), method, url, b, options...)
 }
 
@@ -48,9 +48,7 @@ func Apply(req *http.Request, options ...Option) error {
 	return nil
 }
 
-// Do executes the request on the given client. In case of success, the action is executed in turn.
-// The action may be nil.
-// If the action returns an error, Do will return it along with the response.
+// Do executes the request on the given client.
 func Do(client *http.Client, req *http.Request) *Response {
 	res, err := client.Do(req)
 	return &Response{

@@ -10,8 +10,12 @@ import (
 // Content-Type.
 type URLEncodedFormBody url.Values
 
-func (b URLEncodedFormBody) ProvideBody() (io.Reader, string, error) {
-	return strings.NewReader(url.Values(b).Encode()), "application/x-www-form-urlencoded", nil
+func (b URLEncodedFormBody) ProvideBody() (io.Reader, error) {
+	return strings.NewReader(url.Values(b).Encode()), nil
+}
+
+func (b URLEncodedFormBody) WriteBody(w io.Writer) (int, error) {
+	return w.Write([]byte(url.Values(b).Encode()))
 }
 
 func (b *URLEncodedFormBody) ReadBody(r io.Reader) error {
@@ -25,3 +29,14 @@ func (b *URLEncodedFormBody) ReadBody(r io.Reader) error {
 	}
 	return err
 }
+
+func (b *URLEncodedFormBody) ContentType() string {
+	return "application/x-www-form-urlencoded"
+}
+
+var (
+	_ Provider     = URLEncodedFormBody{}
+	_ Writer       = URLEncodedFormBody{}
+	_ Reader       = (*URLEncodedFormBody)(nil)
+	_ ContentTyper = (*URLEncodedFormBody)(nil)
+)

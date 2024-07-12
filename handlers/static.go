@@ -11,28 +11,31 @@ import (
 
 // Static is an implementation of http.Handler which always writes the same pre-defined response.
 type Static struct {
-	StatusCode int
-	Body       body.Body
+	Body       any
 	Header     http.Header
+	StatusCode int
 }
 
-func NewStatic(statusCode int, bdy body.Body, headers http.Header) (Static, error) {
+func NewStatic(statusCode int, bdy any, headers http.Header) (Static, error) {
 	handler := Static{
 		StatusCode: statusCode,
 		Header:     http.Header{},
 	}
 
 	if bdy != nil {
-		bodyReader, err := body.ProvideBody(bdy)
+		bodyReader, err := body.ReaderFor(bdy)
 		if err != nil {
 			return Static{}, err
+		}
+		if closer, ok := bodyReader.(io.Closer); ok {
+			defer closer.Close()
 		}
 		data, err := io.ReadAll(bodyReader)
 		if err != nil {
 			return Static{}, err
 		}
 		handler.Body = body.Raw(data)
-		if contentType := bdy.ContentType(); contentType != "" {
+		if contentType := body.ContentTypeFor(bdy); contentType != "" {
 			handler.Header.Set(header.ContentType, contentType)
 		}
 	}

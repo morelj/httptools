@@ -48,20 +48,21 @@ func (b JSONBody) ProvideBody() (io.Reader, error) {
 	return bytes.NewReader(data), nil
 }
 
-func (b JSONBody) WriteBody(w io.Writer) error {
+func (b JSONBody) WriteBody(w io.Writer) (int, error) {
 	data, err := b.marshal()
 	if err != nil {
-		return err
+		return 0, err
 	}
-	_, err = w.Write(data)
-	return err
+	return w.Write(data)
 }
 
 func (b JSONBody) ContentType() string {
 	return "application/json"
 }
 
-var _ Provider = JSONBody{}
-var _ Reader = JSONBody{}
-var _ Writer = JSONBody{}
-var _ Body = JSONBody{}
+var (
+	_ Reader       = JSONBody{}
+	_ Writer       = JSONBody{}
+	_ Provider     = JSONBody{}
+	_ ContentTyper = JSONBody{}
+)

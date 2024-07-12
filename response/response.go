@@ -10,8 +10,8 @@ import (
 // Builder provides an API to build an HTTP response before writing it to an http.Writer.
 type Builder struct {
 	headers    http.Header
+	body       any
 	statusCode int
-	body       body.Body
 }
 
 // NewBuilder returns a new, ready to use Builder.
@@ -43,7 +43,7 @@ func (b *Builder) WithHeaders(h http.Header) *Builder {
 	return b
 }
 
-func (b *Builder) WithBody(bdy body.Body) *Builder {
+func (b *Builder) WithBody(bdy any) *Builder {
 	b.body = bdy
 	return b
 }
@@ -73,10 +73,8 @@ func (b *Builder) WithCustomJSONBody(bdy any, indent bool) *Builder {
 func (b *Builder) Write(w http.ResponseWriter) error {
 	h := w.Header()
 
-	if b.body != nil {
-		if contentType := b.body.ContentType(); contentType != "" {
-			h.Set(header.ContentType, contentType)
-		}
+	if contentType := body.ContentTypeFor(b.body); contentType != "" {
+		h.Set(header.ContentType, contentType)
 	}
 
 	for k, v := range b.headers {
@@ -84,11 +82,8 @@ func (b *Builder) Write(w http.ResponseWriter) error {
 	}
 	w.WriteHeader(b.statusCode)
 
-	if b.body != nil {
-		return body.WriteBody(b.body, w)
-	}
-
-	return nil
+	_, err := body.Write(b.body, w)
+	return err
 }
 
 // MustWrite writes the response to w or panics in case of error.
