@@ -17,6 +17,15 @@ func WithHeader(key, value string) Option {
 	}
 }
 
+func WithHeaders(h http.Header) Option {
+	return func(req *http.Request) error {
+		for k, v := range h {
+			req.Header[k] = v
+		}
+		return nil
+	}
+}
+
 func WithContentType(value string) Option {
 	return WithHeader(header.ContentType, value)
 }
