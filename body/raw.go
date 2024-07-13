@@ -21,7 +21,7 @@ func (b *Raw) ReadBody(r io.Reader) error {
 	return err
 }
 
-func (b Raw) ContentType() string {
+func (b *Raw) ContentType() string {
 	return ""
 }
 
@@ -32,12 +32,11 @@ func (b Raw) ProvideBody() (io.Reader, error) {
 	return nil, nil
 }
 
-func (b Raw) WriteBody(w io.Writer) error {
+func (b Raw) WriteBody(w io.Writer) (int, error) {
 	if b != nil {
-		_, err := w.Write(b.Bytes())
-		return err
+		return w.Write(b.Bytes())
 	}
-	return nil
+	return 0, nil
 }
 
 func (b Raw) String() string {
@@ -47,7 +46,9 @@ func (b Raw) String() string {
 	return hex.EncodeToString(b)
 }
 
-var _ Provider = Raw{}
-var _ Reader = (*Raw)(nil)
-var _ Writer = Raw{}
-var _ Body = Raw{}
+var (
+	_ Provider     = Raw{}
+	_ Writer       = Raw{}
+	_ Reader       = (*Raw)(nil)
+	_ ContentTyper = (*Raw)(nil)
+)

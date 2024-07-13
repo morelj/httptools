@@ -9,14 +9,14 @@ import (
 	"github.com/morelj/httptools/request"
 )
 
-func NewRequest(method, target string, requestBody body.Body, options ...request.Option) *http.Request {
-	r, err := body.ProvideBody(requestBody)
+func NewRequest(method, target string, requestBody any, options ...request.Option) *http.Request {
+	r, err := body.ReaderFor(requestBody)
 	if err != nil {
 		panic(err)
 	}
 
 	req := httptest.NewRequest(method, target, r)
-	if contentType := requestBody.ContentType(); contentType != "" {
+	if contentType := body.ContentTypeFor(requestBody); contentType != "" {
 		req.Header.Set(header.ContentType, contentType)
 	}
 	request.Apply(req, options...)
