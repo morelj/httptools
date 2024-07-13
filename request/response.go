@@ -19,7 +19,7 @@ type Response struct {
 // If r.Body.Close() returned an error, this error is returned and r.Err is
 // updated with this error (only if it was nil).
 func (r *Response) Close() error {
-	if r.Body != nil {
+	if r.Response != nil && r.Body != nil {
 		err := r.Body.Close()
 		if r.Err == nil {
 			r.Err = err
