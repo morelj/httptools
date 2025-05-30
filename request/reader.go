@@ -1,6 +1,7 @@
 package request
 
 import (
+	"mime/multipart"
 	"net/http"
 	"net/url"
 
@@ -61,4 +62,27 @@ func (r Reader) ReadURLEncodedBody() (url.Values, error) {
 		return nil, err
 	}
 	return url.Values(values), nil
+}
+
+func (r Reader) MustReadURLEncodedBody() url.Values {
+	values, err := r.ReadURLEncodedBody()
+	if err != nil {
+		panic(err)
+	}
+	return values
+}
+
+func (r Reader) ReadMultipartBody(maxMemory int64) (*multipart.Form, error) {
+	if err := r.r.ParseMultipartForm(maxMemory); err != nil {
+		return nil, err
+	}
+	return r.r.MultipartForm, nil
+}
+
+func (r Reader) MustReadMultipartBody(maxMemory int64) *multipart.Form {
+	form, err := r.ReadMultipartBody(maxMemory)
+	if err != nil {
+		panic(err)
+	}
+	return form
 }
