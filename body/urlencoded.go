@@ -30,7 +30,7 @@ func (b *URLEncodedFormBody) ReadBody(r io.Reader) error {
 	return err
 }
 
-func (b *URLEncodedFormBody) ContentType() string {
+func (b URLEncodedFormBody) ContentType() string {
 	return "application/x-www-form-urlencoded"
 }
 
@@ -38,5 +38,5 @@ var (
 	_ Provider     = URLEncodedFormBody{}
 	_ Writer       = URLEncodedFormBody{}
 	_ Reader       = (*URLEncodedFormBody)(nil)
-	_ ContentTyper = (*URLEncodedFormBody)(nil)
+	_ ContentTyper = URLEncodedFormBody{}
 )
