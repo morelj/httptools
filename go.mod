@@ -1,6 +1,6 @@
 module github.com/morelj/httptools
 
-go 1.18
+go 1.21
 
 require (
 	github.com/morelj/log v0.1.1
