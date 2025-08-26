@@ -19,7 +19,7 @@ type Response struct {
 // If r.Body.Close() returned an error, this error is returned and r.Err is
 // updated with this error (only if it was nil).
 func (r *Response) Close() error {
-	if r.Response != nil && r.Response != nil && r.Body != nil {
+	if r != nil && r.Response != nil && r.Body != nil {
 		err := r.Body.Close()
 		if r.Err == nil {
 			r.Err = err
@@ -77,7 +77,7 @@ func (r *Response) GlobalError() error {
 // ReadBody has no effect if r.Err is not nil.
 // If the body.Reader returns an error, r.Err is set to this error.
 func (r *Response) ReadBody(reader body.Reader) {
-	if r.Err == nil && r.Body != nil {
+	if r != nil && r.Err == nil && r.Body != nil {
 		r.Err = reader.ReadBody(r.Body)
 	}
 }
